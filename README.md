@@ -50,10 +50,12 @@ It utilizes **Google's Gemini 2.0 Flash** model (via OpenRouter) to provide cont
 ## 📦 Installation
 
 1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/mohanad10kz/ai-subtitle-translator.git
-   cd ai-subtitle-translator
-   ```
+
+```bash
+git clone https://github.com/mohanad10kz/Translate-Subtitle-To-Arabic.git
+cd Translate-Subtitle-To-Arabic
+```
+
 2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
@@ -62,7 +64,7 @@ It utilizes **Google's Gemini 2.0 Flash** model (via OpenRouter) to provide cont
 3. **Setup Environment Variables:**
    Create a `.env` file in the root directory and add your key:
    ```env
-   OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
 ---
@@ -102,74 +104,3 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 ## 📧 Contact
 
 For questions or suggestions, open an issue or contact the repository owner.
-
-pip install -r requirements.txt
-(Make sure you have a requirements.txt file containing: openai, webvtt-py, pysrt, tqdm, python-dotenv)
-
-Setup Environment Variables: Create a .env file in the root directory and add your key:
-
-مقتطف الرمز
-
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-🚀 Usage
-Run the script:
-
-Bash
-
-python translator.py
-Paste the full path to the folder containing your subtitles when prompted.
-
-The script will generate new files with an \_ar suffix (e.g., lecture_ar.vtt).
-
-📜 License
-This project is open-source and available under the MIT License.
-
-🎬 مترجم ملفات الترجمة التقنية بالذكاء الاصطناعي
-أداة مفتوحة المصدر وتلقائية مبنية بلغة بايثون لترجمة ملفات الترجمة (.vtt, .srt) من الإنجليزية إلى العربية باحترافية.
-
-تعتمد الأداة على نموذج Google Gemini 2.0 Flash (عبر OpenRouter) لتقديم ترجمة تفهم السياق، مع التركيز بشكل خاص على الكورسات البرمجية والتقنية، حيث تضمن عدم ترجمة الأكواد البرمجية، أسماء المتغيرات، والمصطلحات التقنية الدقيقة.
-
-✨ المميزات الرئيسية
-🛡️ استراتيجية المعالجة الذاتية (Recursive Fallback): تستخدم الأداة خوارزمية "فرّق تسد". إذا فشل النموذج في ترجمة دفعة من 20 سطراً، يقوم السكربت تلقائياً بتقسيم الدفعة إلى نصفين وإعادة المحاولة بشكل تكراري حتى تنجح الترجمة، مما يضمن عدم فقدان أي سطر.
-
-⏯️ الذكاء في الاستكمال (Idempotency): يقوم السكربت بفحص المجلد، ويتخطى تلقائياً الملفات التي تمت ترجمتها سابقاً. يمكنك إيقاف البرنامج وتشغيله لاحقاً ليكمل من حيث توقف.
-
-👨‍💻 مخصص للمبرمجين:
-
-يحافظ بصرامة على كتل الكود (Code Blocks)، المسارات، وأسماء الدوال باللغة الإنجليزية.
-
-يضيف تنسيقات RTL (من اليمين لليسار) لضمان ظهور الترجمة بشكل صحيح في مشغلات الفيديو.
-
-🔒 آمن: يتم تحميل مفاتيح الـ API بشكل آمن من ملف .env لضمان عدم مشاركتها في الكود.
-
-🛠️ المتطلبات
-تثبيت Python 3.8 أو أحدث.
-
-الحصول على مفتاح API من منصة OpenRouter.
-
-📦 طريقة التثبيت
-نسخ المستودع (Clone):
-
-Bash
-
-git clone [https://github.com/mohanad10kz/ai-subtitle-translator.git](https://github.com/mohanad10kz/ai-subtitle-translator.git)
-cd ai-subtitle-translator
-تثبيت المكتبات المطلوبة:
-
-Bash
-
-pip install -r requirements.txt
-إعداد متغيرات البيئة: أنشئ ملفاً جديداً باسم .env بجانب السكربت، وضع فيه مفتاحك:
-
-مقتطف الرمز
-
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-🚀 طريقة الاستخدام
-شغل السكربت:
-
-Bash
-
-python translator.py
-سيطلب منك البرنامج مسار المجلد (Folder Path) الذي يحتوي على ملفات الترجمة.
-
-سيبدأ البرنامج بالترجمة وإنشاء ملفات جديدة تنتهي بـ \_ar (مثال: lecture_ar.vtt).
