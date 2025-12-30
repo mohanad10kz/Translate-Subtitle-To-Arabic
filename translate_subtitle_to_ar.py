@@ -88,6 +88,9 @@ Produce a translation that sounds natural to an Arab developer (Tech-Savvy Arabi
 RLE = '\u202b'
 PDF = '\u202c'
 
+# ==========================================
+# دوال مساعدة (Utils)
+# ==========================================
 def extract_json_list(text):
     """ استخراج JSON من النص """
     try:
@@ -104,6 +107,23 @@ def has_arabic(text):
     """ فحص هل يحتوي النص على حروف عربية """
     return bool(re.search(r'[\u0600-\u06FF]', text))
 
+def is_output_file(file_path):
+    """ فحص هل الملف يحتوي على علامات RTL (عربي) """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            head = f.read(1000)
+            if "direction: rtl" in head or "text-align: right" in head or "align:right" in head:
+                return True
+            # فحص إضافي لمحتوى السطور في حالة عدم وجود الهيدر
+            if has_arabic(head):
+                return True
+    except:
+        pass
+    return False
+
+# ==========================================
+# منطق الترجمة والتحقق
+# ==========================================
 def is_valid_translation(original_batch, translated_batch):
     """
     دالة التحقق الذكية: تميز بين المصطلحات التقنية (المقبولة بالإنجليزية)
@@ -145,11 +165,10 @@ def is_valid_translation(original_batch, translated_batch):
     
     # نرفض إذا كان أكثر من 30% من الجمل الطويلة منسوخة حرفياً
     if echo_count > (len(original_batch) * 0.3):
-        return False, f"Too much echoing in long sentences ({echo_count}/{len(original_batch)})"
+        return False, f"Too much echoing ({echo_count}/{len(original_batch)})"
 
-    # نرفض إذا كان أكثر من 40% من الجمل الطويلة ليس بها عربية
     if no_arabic_count > (len(original_batch) * 0.4):
-        return False, f"Missing Arabic in sentences ({no_arabic_count}/{len(original_batch)})"
+        return False, f"Missing Arabic ({no_arabic_count}/{len(original_batch)})"
 
     return True, "Valid"
 
@@ -158,7 +177,6 @@ def translate_batch(texts_batch, depth=0):
     ترجمة دفعة مع استراتيجية 'فرق تسد' + التحقق من العروبة
     """
     max_retries = 2
-    
     user_message = f"Translate these specific {len(texts_batch)} lines to Arabic. Return exactly {len(texts_batch)} lines in a JSON list:"
     full_user_content = user_message + "\n" + json.dumps(texts_batch)
 
@@ -172,10 +190,6 @@ def translate_batch(texts_batch, depth=0):
             completion = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
-                extra_headers={
-                    "HTTP-Referer": "https://github.com/mohanad", 
-                    "X-Title": "Subtitle Translator Script"
-                },
                 temperature=0.1 
             )
             
@@ -209,29 +223,121 @@ def translate_batch(texts_batch, depth=0):
     # استراتيجية الفشل الذكي (Recursive Splitting)
     if len(texts_batch) > 1:
         mid = len(texts_batch) // 2
-        if depth == 0:
-            print(f"🔄 Splitting batch of {len(texts_batch)} into {mid} and {len(texts_batch)-mid} due to validation failure...")
-        
-        left_batch = texts_batch[:mid]
-        right_batch = texts_batch[mid:]
-        
-        left_result = translate_batch(left_batch, depth=depth+1)
-        right_result = translate_batch(right_batch, depth=depth+1)
-        
-        if left_result and right_result:
-            return left_result + right_result
+        if depth == 0: print(f"🔄 Splitting batch...")
+        left = translate_batch(texts_batch[:mid], depth+1)
+        right = translate_batch(texts_batch[mid:], depth+1)
+        if left and right: return left + right
     
     return None
 
-def process_single_file(file_path, is_vtt=True):
-    print(f"\n📄 Processing: {file_path.name}")
+# ==========================================
+# إدارة الملفات (Processing & Migration)
+# ==========================================
+
+def migrate_legacy_files(folder_path):
+    """
+    وظيفة إصلاح وتنظيم الملفات القديمة لتوافق النظام الجديد (VLC Ready).
+    تحول: Name.vtt (Eng) + Name_ar.vtt (Ara)
+    إلى: Name_en.vtt (Eng) + Name.vtt (Ara)
+    """
+    print("🧹 Checking for legacy file names to fix...")
     
-    if is_vtt:
+    # البحث عن كل الملفات التي تنتهي بـ _ar أو _gemini_ar
+    legacy_patterns = ["*_ar.vtt", "*_ar.srt", "*_gemini_ar.vtt", "*_gemini_ar.srt"]
+    found_arabic_files = []
+    for pattern in legacy_patterns:
+        found_arabic_files.extend(list(folder_path.glob(pattern)))
+        
+    count = 0
+    for ar_file in found_arabic_files:
+        # استخراج الاسم الأصلي المتوقع
+        # مثال: video_gemini_ar.vtt -> video.vtt
+        # مثال: video_ar.vtt -> video.vtt
+        suffix = ar_file.suffix
+        stem = ar_file.stem
+        
+        if "_gemini_ar" in stem:
+            base_name = stem.replace("_gemini_ar", "")
+        elif "_ar" in stem:
+            base_name = stem.replace("_ar", "")
+        else:
+            continue
+            
+        original_file_path = ar_file.parent / (base_name + suffix)
+        
+        # الحالة: الملف العربي (_ar) موجود، والملف الأصلي (بدون _ar) موجود أيضاً
+        if original_file_path.exists():
+            
+            # التحقق: هل الملف "الأصلي" هو فعلاً إنجليزي؟ (لا يحتوي على RTL)
+            if not is_output_file(original_file_path):
+                # نعم هو إنجليزي، يجب إعادة تسميته إلى _en
+                en_new_path = ar_file.parent / (base_name + "_en" + suffix)
+                
+                try:
+                    # 1. تغيير اسم الإنجليزي القديم إلى _en
+                    # (إلا إذا كان _en موجوداً مسبقاً، حينها نحذفه أو نتجاوز)
+                    if not en_new_path.exists():
+                        original_file_path.rename(en_new_path)
+                        print(f"📦 Migrating: {original_file_path.name} -> {en_new_path.name}")
+                    else:
+                        # إذا كان _en موجوداً، غالباً الأصل هو نسخة مكررة، يمكن حذفه بأمان
+                        # لكن للأمان سنبقيه ونغير اسمه لـ backup
+                        # original_file_path.rename(ar_file.parent / (base_name + "_backup" + suffix))
+                        pass
+
+                    # 2. تغيير اسم العربي (_ar) ليأخذ مكان الأصلي
+                    # تأكد أن المكان أصبح فارغاً الآن
+                    if not original_file_path.exists():
+                        ar_file.rename(original_file_path)
+                        print(f"✅ Fixed Arabic: {ar_file.name} -> {original_file_path.name}")
+                        count += 1
+                except Exception as e:
+                    print(f"❌ Error migrating {base_name}: {e}")
+
+    if count > 0:
+        print(f"🎉 Migrated {count} files to VLC-Ready format.\n")
+    else:
+        print("👍 No legacy files needed migration.\n")
+
+
+def process_file_logic(source_file_path):
+    stem = source_file_path.stem
+    suffix = source_file_path.suffix
+    
+    # 1. تحديد الملفات
+    if stem.lower().endswith(('_en', ' en', '_eng')):
+        actual_source = source_file_path
+        target_name = re.sub(r'(_en| en|_eng)$', '', stem, flags=re.IGNORECASE) + suffix
+        output_path = source_file_path.parent / target_name
+    else:
+        # إذا لم يكن ينتهي بـ _en، نقوم بتغيير اسمه أولاً
+        new_source_name = f"{stem}_en{suffix}"
+        new_source_path = source_file_path.parent / new_source_name
+        
+        print(f"📦 Renaming source: {source_file_path.name} -> {new_source_name}")
         try:
-            subs = list(webvtt.read(file_path))
-        except:
-            print(f"❌ Error reading VTT file: {file_path.name}")
+            source_file_path.rename(new_source_path)
+            actual_source = new_source_path
+            output_path = source_file_path 
+        except OSError as e:
+            print(f"❌ Could not rename file: {e}")
             return False
+
+    # 2. التحقق
+    if output_path.exists():
+        if is_output_file(output_path):
+            print(f"⏭️  Skipped: {output_path.name} (Already translated).")
+            return True
+        else:
+            print(f"⚠️ Warning: {output_path.name} exists but isn't Arabic. Overwriting...")
+
+    # 3. المعالجة
+    print(f"\n📄 Processing: {actual_source.name} -> {output_path.name}")
+    
+    is_vtt = suffix.lower() == '.vtt'
+    if is_vtt:
+        try: subs = list(webvtt.read(actual_source))
+        except: return False
     else:
         try:
             subs = pysrt.open(str(file_path), encoding='utf-8')
@@ -241,28 +347,22 @@ def process_single_file(file_path, is_vtt=True):
 
     all_texts = [sub.text for sub in subs]
     translated_texts = []
+    BATCH_SIZE = 15
     
-    # تقليل حجم الدفعة قليلاً لزيادة الدقة
-    BATCH_SIZE = 15 
-    
-    pbar = tqdm(range(0, len(all_texts), BATCH_SIZE), desc="🌐 AI Translating", leave=False)
+    pbar = tqdm(range(0, len(all_texts), BATCH_SIZE), desc="🌐 Translating", leave=False)
     
     for i in pbar:
         batch = all_texts[i : i + BATCH_SIZE]
-        
         translated_batch = translate_batch(batch)
         
         if translated_batch is None:
             pbar.close()
-            print(f"⚠️ Failed to translate a batch in {file_path.name}. Skipping file.")
+            print(f"⚠️ Failed to translate {actual_source.name}")
             return False 
             
         translated_texts.extend(translated_batch)
-        # لا حاجة لانتظار طويل مع OpenRouter
-        # time.sleep(0.5) 
 
-    output_ext = ".vtt" if is_vtt else ".srt"
-    output_path = file_path.parent / f"{file_path.stem}_ar{output_ext}"
+
 
     if is_vtt:
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -275,12 +375,12 @@ def process_single_file(file_path, is_vtt=True):
             sub.text = translated_texts[i] if i < len(translated_texts) else ""
         subs.save(str(output_path), encoding='utf-8')
 
-    print(f"✅ Success: Saved to {output_path.name}")
+    print(f"✅ Success: Generated {output_path.name}")
     return True
 
 def main():
     if not API_KEY or API_KEY.startswith("sk-or-v1-xx"):
-        print("❌ Error: Please insert your OpenRouter API Key in .env file or script.")
+        print("❌ Error: Missing API Key.")
         return
 
     folder_input = input("📁 Enter folder path: ").strip().strip('"')
@@ -290,65 +390,43 @@ def main():
         print("❌ Invalid directory.")
         return
 
-    all_source_files = list(folder_path.glob("*.vtt")) + list(folder_path.glob("*.srt"))
+    # 🔥 خطوة 1: إصلاح الملفات القديمة أولاً
+    migrate_legacy_files(folder_path)
+
+    # 🔥 خطوة 2: جمع الملفات المتبقية للمعالجة
+    all_files = list(folder_path.glob("*.vtt")) + list(folder_path.glob("*.srt"))
     
-    if not all_source_files:
+    if not all_files:
         print("⚠️ No files found.")
         return
 
     files_to_process = []
-    skipped_count = 0
     
-    print("\n🔍 Scanning files...")
-    for file in all_source_files:
-        if file.stem.endswith("_ar"): continue
+    print("🔍 Scanning files...")
+    for file in all_files:
+        # إذا كان ملف ناتج (عربي)، نتجاهله
+        if is_output_file(file):
+            continue
             
-        ext = file.suffix.lower()
-        expected_output_name = f"{file.stem}_ar{ext}"
-        expected_output_path = file.parent / expected_output_name
-        
-        if expected_output_path.exists():
-            skipped_count += 1
-        else:
-            files_to_process.append(file)
+        # إذا كان ملف _en، هو مصدر محتمل
+        if file.stem.lower().endswith(('_en', ' en')):
+             files_to_process.append(file)
+             continue
+             
+        # إذا كان ملفاً عادياً (ليس عربياً وليس _en)، فهو مصدر جديد يحتاج إعادة تسمية وترجمة
+        files_to_process.append(file)
 
-    print(f"⏭️  Skipped: {skipped_count} files (Already translated).")
-    print(f"📋 Remaining: {len(files_to_process)} files.\n")
-
-    if not files_to_process:
-        print("🎉 All files are already translated!")
-        return
-
-    failed_files = []
+    print(f"📋 Found {len(files_to_process)} files to translate.\n")
 
     for i, file in enumerate(files_to_process, 1):
         print(f"[{i}/{len(files_to_process)}]", end=" ")
-        is_vtt = file.suffix.lower() == '.vtt'
-        success = process_single_file(file, is_vtt)
+        success = process_file_logic(file)
         
         if not success:
-            failed_files.append(file)
-            print("🔻 Added to Retry Queue.")
-            time.sleep(2)
+            print("🔻 Failed.")
+            time.sleep(1)
 
-    if failed_files:
-        print("\n" + "="*40)
-        print(f"⚠️ Retrying {len(failed_files)} failed files...")
-        print("="*40 + "\n")
-        
-        for file in failed_files:
-            print(f"🔄 Retrying: {file.name}")
-            time.sleep(5) 
-            
-            is_vtt = file.suffix.lower() == '.vtt'
-            success = process_single_file(file, is_vtt)
-            
-            if not success:
-                print(f"❌ Final Failure: {file.name}")
-                print("🛑 Script stopped due to persistent errors.")
-                sys.exit(1)
-
-    print("\n🎉 All operations completed successfully.")
+    print("\n🎉 All operations completed.")
 
 if __name__ == "__main__":
     main()

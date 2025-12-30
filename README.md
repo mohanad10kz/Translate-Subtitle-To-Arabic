@@ -62,10 +62,13 @@ cd Translate-Subtitle-To-Arabic
    ```
    > Make sure you have a requirements.txt file containing: openai, webvtt-py, pysrt, tqdm, python-dotenv
 3. **Setup Environment Variables:**
-   Create a `.env` file in the root directory and add your key:
-   ```env
-   API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
+   Copy the `.env_example` file to `.env` and add your actual API key:
+
+```env
+API_KEY=sk-or-v1-your_openrouter_api_key_here
+```
+
+- This key is required to use the translation script. You can get it from https://openrouter.ai/
 
 ---
 
@@ -79,7 +82,12 @@ python translate_subtitle_to_ar.py
 
 Paste the full path to the folder containing your subtitles when prompted.
 
-The script will generate new files with an `_ar` suffix (e.g., lecture_ar.vtt).
+**Output Naming:**
+
+- The translated Arabic subtitle will have the same name as the original file (e.g., `lecture.vtt`).
+- The original English subtitle will be renamed with `_en` at the end (e.g., `lecture_en.vtt`).
+
+> **Note:** This ensures that the Arabic subtitle is ready for direct use with your video, and the English version is safely preserved.
 
 ---
 
@@ -91,7 +99,7 @@ This project is open-source and available under the MIT License.
 
 ## 🇸🇦 Arabic Summary
 
-أداة بايثون مفتوحة المصدر لترجمة ملفات الترجمة التقنية من الإنجليزية إلى العربية مع الحفاظ على الأكواد والمصطلحات البرمجية. سهلة الاستخدام وتدعم الترجمة الذكية والسريعة.
+أداة بايثون مفتوحة المصدر لترجمة ملفات الترجمة التقنية من الإنجليزية إلى العربية مع الحفاظ على الأكواد والمصطلحات البرمجية. كل ما عليك هو وضع مفتاح API الخاص بك في ملف .env وتشغيل السكربت.
 
 ---
 
