@@ -340,9 +340,9 @@ def process_file_logic(source_file_path):
         except: return False
     else:
         try:
-            subs = pysrt.open(str(file_path), encoding='utf-8')
+            subs = pysrt.open(str(actual_source), encoding='utf-8')
         except:
-             print(f"❌ Error reading SRT file: {file_path.name}")
+             print(f"❌ Error reading SRT file: {actual_source.name}")
              return False
 
     all_texts = [sub.text for sub in subs]
