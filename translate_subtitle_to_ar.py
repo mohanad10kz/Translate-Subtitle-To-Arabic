@@ -27,8 +27,11 @@ if not API_KEY:
 
 # اسم الموديل
 # MODEL_NAME = "google/gemini-2.0-flash-exp:free"
-MODEL_NAME = "xiaomi/mimo-v2-flash:free"
+# MODEL_NAME = "xiaomi/mimo-v2-flash:free"
 # MODEL_NAME = "deepseek/deepseek-r1-0528:free"
+# MODEL_NAME = "qwen/qwen3.6-plus:free"
+# MODEL_NAME = "openai/gpt-oss-120b:free"
+MODEL_NAME = "google/gemma-4-31b-it:free"
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
@@ -40,7 +43,7 @@ You are a Senior Technical Translator and Software Engineering Instructor for Ar
 Your task is to translate a list of subtitle lines from English to Arabic, specifically for a programming course.
 
 ### 🎯 OBJECTIVE:
-Produce a translation that sounds natural to an Arab developer (Tech-Savvy Arabic). Do not use stiff, academic, or "Google Translate" style Arabic.
+Produce a translation that sounds natural to an Arab developer (Tech-Savvy Arabic).
 
 ### ⚠️ CRITICAL TECHNICAL RULES (ZERO TOLERANCE):
 1. **JSON Only:** Return NOTHING but a raw JSON list of strings. No Markdown code blocks (```json), no intro text, no explanations.
