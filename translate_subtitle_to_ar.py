@@ -14,16 +14,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ==========================================
-# 1. إعدادات OpenRouter
+# 1. إعدادات Ollama / Proxy
 # ==========================================
-# 3. قراءة المفتاح بأمان
-API_KEY = os.getenv("API_KEY")
-
-# التحقق من أن المفتاح تم تحميله
-if not API_KEY:
-    print("❌ Error: Could not find 'API_KEY' in .env file.")
-    print("💡 Please create a .env file and add your key.")
-    sys.exit(1)
+# 3. قراءة المفتاح بأمان أو استخدام قيمة وهمية للموديلات المحلية
+API_KEY = os.getenv("API_KEY", "ollama")
 
 # اسم الموديل
 # MODEL_NAME = "google/gemini-2.0-flash-exp:free"
@@ -31,10 +25,13 @@ if not API_KEY:
 # MODEL_NAME = "deepseek/deepseek-r1-0528:free"
 # MODEL_NAME = "qwen/qwen3.6-plus:free"
 # MODEL_NAME = "openai/gpt-oss-120b:free"
-MODEL_NAME = "google/gemma-4-31b-it:free"
+# MODEL_NAME = "deepseek-r1:8b" # Local model via Ollama
+MODEL_NAME = "translator:latest" # Local model via Ollama
 
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    # يمكنك التبديل بين الـ Proxy الخاص بك أو Ollama مباشرة بإلغاء التعليق
+    base_url="http://localhost:11434/v1", # Direct Ollama OpenAI-compatible endpoint
+    # base_url="http://localhost:5000",       # Node.js Proxy
     api_key=API_KEY,
 )
 
@@ -96,6 +93,9 @@ PDF = '\u202c'
 # ==========================================
 def extract_json_list(text):
     """ استخراج JSON من النص """
+    # إزالة محتوى تفكير الموديلات (مثل DeepSeek) قبل استخراج JSON
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    
     try:
         start = text.find('[')
         end = text.rfind(']')
@@ -193,7 +193,8 @@ def translate_batch(texts_batch, depth=0):
             completion = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
-                temperature=0.1 
+                temperature=0.1,
+                timeout=None # Disable strict timeouts for slow local models
             )
             
             response_text = completion.choices[0].message.content.strip()
@@ -221,7 +222,9 @@ def translate_batch(texts_batch, depth=0):
                 time.sleep(wait_time)
                 continue
             else:
-                pass
+                print(f"⚠️ Delay or error in translation API (could be slow local response). Errmsg: {error_msg}. Retrying...")
+                time.sleep(2)
+                continue
     
     # استراتيجية الفشل الذكي (Recursive Splitting)
     if len(texts_batch) > 1:
@@ -382,10 +385,6 @@ def process_file_logic(source_file_path):
     return True
 
 def main():
-    if not API_KEY or API_KEY.startswith("sk-or-v1-xx"):
-        print("❌ Error: Missing API Key.")
-        return
-
     folder_input = input("📁 Enter folder path: ").strip().strip('"')
     folder_path = Path(folder_input)
 
